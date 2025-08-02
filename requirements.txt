@@ -1,0 +1,5 @@
+telethon>=1.24.0
+cryptg>=0.2.post4
+pillow>=9.0.0
+python-dotenv>=0.19.2
+aiohttp>=3.8.1

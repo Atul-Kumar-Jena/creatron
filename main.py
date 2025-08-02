@@ -7,6 +7,9 @@ from telethon import TelegramClient, events
 import logging
 import asyncio
 import sys
+import os
+import threading
+from flask import Flask
 from modules.multi_commands import handle_message, load_sessions_from_storage_group
 from config import API_ID, API_HASH, BOT_TOKEN, SESSION_STORAGE_GROUP_ID, SUMMARY_GROUP_ID
 
@@ -20,11 +23,25 @@ logger = logging.getLogger(__name__)
 # Initialize the client as a bot with bot token
 client = TelegramClient('creaternal_bot', API_ID, API_HASH)
 
+# Create Flask app to keep the service alive on Render
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    """Simple endpoint to confirm the bot is running"""
+    return "Telegram Bot is running!"
+
+@app.route('/health')
+def health_check():
+    """Health check endpoint for monitoring"""
+    return {"status": "healthy", "bot": "running"}
+
 # Register event handler for bot commands and messages
 @client.on(events.NewMessage())
 async def message_handler(event):
     """Handle all incoming messages"""
     try:
+        # Make sure to use the handle_message from multi_commands
         await handle_message(client, event)
     except Exception as e:
         logger.error(f"Error handling message: {str(e)}")
@@ -98,11 +115,22 @@ async def startup_tasks():
     except Exception as e:
         logger.error(f"Error during startup: {str(e)}")
 
+def run_flask():
+    """Run the Flask web server on a separate thread"""
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
+
 # Main execution block
 if __name__ == "__main__":
     print("Starting Telegram Multi-Group Creator Bot...")
     
     try:
+        # Start the web server in a separate thread
+        flask_thread = threading.Thread(target=run_flask)
+        flask_thread.daemon = True
+        flask_thread.start()
+        logger.info(f"Flask web server started on port {os.environ.get('PORT', 8080)}")
+        
         # Start the client with bot token
         client.start(bot_token=BOT_TOKEN)
         
